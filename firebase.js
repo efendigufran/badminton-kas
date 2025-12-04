@@ -1,3 +1,4 @@
+// didapatkan dari Firebase Console -> Project settings -> Your apps (web)
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCyT5p35LgWdtEG0aybT2OKbhxpuuJcUwk",
@@ -12,3 +13,4 @@ const firebaseConfig = {
 // Init
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
