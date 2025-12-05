@@ -225,7 +225,7 @@ async function computeBalances() {
   usagesSnap.forEach(u=>{
     const data = u.data();
     const id = data.memberId;
-    if (id && members[id]) members[id].use += (data.totalBiaya || 0);
+    if (id && members[id]) members[id].use += (data.biayaPerOrang  || 0);
   });
 
   // sum payments per member
