@@ -148,7 +148,7 @@ $('addUsageBtn').addEventListener('click', async ()=>{
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
-  $('useCocks').value=''; $('usePlayers').value=''; $('useMember').value='';
+  $('useCocks').value=''; $('usePlayers').value='4'; $('useMember').value='';
 });
 
 function renderUsages(snapshot) {
