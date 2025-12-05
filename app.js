@@ -1,287 +1,191 @@
-// app.js
-// Pastikan firebase.js sudah diload (db, auth tersedia)
+// app.js - Versi RAPIH + Multi-Select Player Input + Komentar Lengkap
+// Backend menggunakan Firebase Firestore
+// Catatan: firebaseConfig berada di firebase.js dan sudah di-import di HTML
 
-// ---------- Utility ----------
-const $ = (id) => document.getElementById(id);
-const formatRp = (n) => {
-  if (!n && n !== 0) return "Rp 0";
-  return "Rp " + Number(n).toLocaleString('id-ID');
-};
+// --- Inisialisasi Firestore ---
+const db = firebase.firestore();
 
-// ---------- Tab switching ----------
-document.querySelectorAll('.tab-btn').forEach(b=>{
-  b.addEventListener('click', ()=> {
-    const target = b.dataset.target;
-    document.querySelectorAll('.tab').forEach(t=>t.style.display='none');
-    document.getElementById(target).style.display = 'block';
+// =============================================================
+// 1. FUNGSI MEMUAT ANGGOTA (untuk multi-select pemain)
+// =============================================================
+async function loadMembers() {
+  const memberSelect = document.getElementById('playerSelect'); // multi select
+  memberSelect.innerHTML = '';
+
+  const snap = await db.collection('members').orderBy('name').get();
+  snap.forEach(doc => {
+    const m = doc.data();
+    const opt = document.createElement('option');
+    opt.value = doc.id;
+    opt.textContent = m.name;
+    memberSelect.appendChild(opt);
   });
-});
+}
 
-// ---------- MEMBERS ----------
-const membersTableBody = $('membersTable').querySelector('tbody');
-const memberSelects = [ $('useMember'), $('payMember') ];
+// =============================================================
+// 2. FUNGSI MENYIMPAN PEMAKAIAN SHUTTLECOCK (dengan multi-select pemain)
+// =============================================================
+async function addUsage() {
+  const date = document.getElementById('usageDate').value;
+  const cockUsed = parseInt(document.getElementById('cockUsed').value);
+  const pricePerCock = parseInt(document.getElementById('pricePerCock').value);
+  const players = Array.from(document.getElementById('playerSelect').selectedOptions)
+    .map(o => o.value);
 
-$('addMemberBtn').addEventListener('click', async ()=>{
-  const name = $('memberName').value.trim();
-  const phone = $('memberPhone').value.trim();
-  if (!name) return alert('Masukkan nama anggota');
-  await db.collection('members').add({ name, phone, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-  $('memberName').value=''; $('memberPhone').value='';
-});
+  if (!date || !cockUsed || !pricePerCock || players.length === 0) {
+    alert('Lengkapi semua field + pilih pemain.');
+    return;
+  }
 
-function renderMembers(snapshot) {
-  membersTableBody.innerHTML = '';
-  memberSelects.forEach(s=> s.innerHTML = '<option value="">Pilih anggota</option>');
-  snapshot.forEach(doc=>{
-    const d = doc.data();
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${d.name}</td>
-      <td>${d.phone||'-'}</td>
-      <td id="saldo-${doc.id}">-</td>
-      <td>
-        <button class="del-member" data-id="${doc.id}">Hapus</button>
-      </td>
-    `;
-    membersTableBody.appendChild(tr);
+  const totalBiaya = cockUsed * pricePerCock;
+  const biayaPerOrang = totalBiaya / players.length;
 
-    // add to selects
-    memberSelects.forEach(s=>{
-      const opt = document.createElement('option');
-      opt.value = doc.id;
-      opt.textContent = d.name;
-      s.appendChild(opt);
+  // Simpan record per pemain (1 pemain = 1 dokumen)
+  const batch = db.batch();
+  players.forEach(memberId => {
+    const ref = db.collection('usages').doc();
+    batch.set(ref, {
+      date,
+      memberId,
+      cockUsed,
+      pricePerCock,
+      totalBiaya,
+      biayaPerOrang,
+      players,
+      createdAt: new Date()
     });
   });
+
+  await batch.commit();
+  alert('Pemakaian shuttlecock berhasil dicatat untuk semua pemain.');
+  loadUsages();
+  computeBalances();
 }
 
-membersTableBody.addEventListener('click', async (e)=>{
-  if (e.target.classList.contains('del-member')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus anggota?')) {
-      await db.collection('members').doc(id).delete();
-    }
-  }
-});
+// =============================================================
+// 3. MENAMPILKAN RIWAYAT PEMAKAIAN
+// =============================================================
+async function loadUsages() {
+  const table = document.getElementById('usageTable');
+  table.innerHTML = '';
 
-// subscribe members
-db.collection('members').orderBy('name').onSnapshot(renderMembers);
+  const snap = await db.collection('usages').orderBy('date', 'desc').get();
 
-// ---------- STOCKS ----------
-const stocksTableBody = $('stocksTable').querySelector('tbody');
+  snap.forEach(doc => {
+    const u = doc.data();
 
-$('addStockBtn').addEventListener('click', async ()=>{
-  const tanggal = $('stockDate').value || new Date().toISOString().slice(0,10);
-  const jenis = $('stockType').value || 'standard';
-  const tabung = Number($('stockCans').value) || 0;
-  const isiPerTabung = Number($('stockPerCan').value) || 0;
-  const hargaPerTabung = Number($('stockPricePerCan').value) || 0;
-  if (!tabung || !isiPerTabung || !hargaPerTabung) return alert('Isi semua kolom stok dengan angka > 0');
-  await db.collection('stocks').add({
-    tanggal,
-    jenis,
-    tabung,
-    isiPerTabung,
-    hargaPerTabung,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  $('stockType').value=''; $('stockCans').value=''; $('stockPerCan').value=''; $('stockPricePerCan').value='';
-});
-
-function renderStocks(snapshot) {
-  stocksTableBody.innerHTML = '';
-  let totalCock = 0;
-  snapshot.forEach(doc=>{
-    const d = doc.data();
-    const hargaPerCock = d.hargaPerTabung && d.isiPerTabung ? (d.hargaPerTabung / d.isiPerTabung) : 0;
-    totalCock += (d.tabung||0) * (d.isiPerTabung||0);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${d.tanggal || '-'}</td>
-      <td>${d.jenis}</td>
-      <td>${d.tabung}</td>
-      <td>${d.isiPerTabung}</td>
-      <td>${formatRp(d.hargaPerTabung)}</td>
-      <td>${formatRp(Math.round(hargaPerCock))}</td>
-      <td><button class="del-stock" data-id="${doc.id}">Hapus</button></td>`;
-    stocksTableBody.appendChild(tr);
-  });
-  $('totalStock').textContent = totalCock;
-}
-
-stocksTableBody.addEventListener('click', async (e)=>{
-  if (e.target.classList.contains('del-stock')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus data stok?')) await db.collection('stocks').doc(id).delete();
-  }
-});
-
-// listen stocks ordered newest-first
-db.collection('stocks').orderBy('createdAt','desc').onSnapshot(renderStocks);
-
-// ---------- USAGES ----------
-const usagesTableBody = $('usagesTable').querySelector('tbody');
-
-$('addUsageBtn').addEventListener('click', async ()=>{
-  const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
-  const memberId = $('useMember').value || null;
-  const cock = Number($('useCocks').value) || 0;
-  const players = Number($('usePlayers').value) || 1;
-  if (!cock || cock <= 0) return alert('Masukkan jumlah cock dipakai (>0)');
-  // ambil harga per cock terbaru dari stocks (most recent)
-  const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
-  let hargaPerCock = 0;
-  if (!q.empty) {
-    const s = q.docs[0].data();
-    hargaPerCock = s.hargaPerTabung / s.isiPerTabung;
-  }
-  const totalBiaya = Math.round(cock * hargaPerCock);
-  const biayaPerOrang = Math.round(totalBiaya / Math.max(players,1));
-
-  await db.collection('usages').add({
-    tanggal,
-    memberId,
-    cock,
-    players,
-    hargaPerCock,
-    totalBiaya,
-    biayaPerOrang,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  $('useCocks').value=''; $('usePlayers').value=''; $('useMember').value='';
-});
-
-function renderUsages(snapshot) {
-  usagesTableBody.innerHTML = '';
-  snapshot.forEach(doc=>{
-    const d = doc.data();
-    const name = d.memberId ? '—' : '-';
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${d.tanggal}</td>
-      <td>${d.memberId || '-'}</td>
-      <td>${d.cock}</td>
-      <td>${d.players}</td>
-      <td>${formatRp(d.totalBiaya)}</td>
-      <td>${formatRp(d.biayaPerOrang)}</td>
-      <td><button class="del-usage" data-id="${doc.id}">Hapus</button></td>`;
-    usagesTableBody.appendChild(tr);
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${u.date}</td>
+      <td>${u.players.map(x => `<span class="tag">${x}</span>`).join(' ')}</td>
+      <td>${u.cockUsed}</td>
+      <td>${u.pricePerCock}</td>
+      <td>${u.totalBiaya}</td>
+      <td>${u.biayaPerOrang}</td>
+    `;
+    table.appendChild(row);
   });
 }
 
-usagesTableBody.addEventListener('click', async (e)=>{
-  if (e.target.classList.contains('del-usage')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus pemakaian?')) await db.collection('usages').doc(id).delete();
+// =============================================================
+// 4. MENYIMPAN PEMBAYARAN ANGGOTA
+// =============================================================
+async function addPayment() {
+  const date = document.getElementById('payDate').value;
+  const memberId = document.getElementById('payMember').value;
+  const amount = parseInt(document.getElementById('payAmount').value);
+
+  if (!date || !memberId || !amount) {
+    alert('Lengkapi pembayaran.');
+    return;
   }
-});
 
-db.collection('usages').orderBy('createdAt','desc').onSnapshot(renderUsages);
-
-// ---------- PAYMENTS ----------
-const paymentsTableBody = $('paymentsTable').querySelector('tbody');
-
-$('addPaymentBtn').addEventListener('click', async ()=>{
-  const memberId = $('payMember').value;
-  const date = $('payDate').value || new Date().toISOString().slice(0,10);
-  const amount = Number($('payAmount').value) || 0;
-  if (!memberId) return alert('Pilih anggota');
-  if (!amount || amount <= 0) return alert('Masukkan jumlah pembayaran > 0');
   await db.collection('payments').add({
-    memberId, date, amount,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    date,
+    memberId,
+    amount,
+    createdAt: new Date()
   });
-  $('payAmount').value=''; $('payMember').value='';
-});
 
-function renderPayments(snapshot) {
-  paymentsTableBody.innerHTML = '';
-  snapshot.forEach(doc=>{
-    const d = doc.data();
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${d.date}</td><td>${d.memberId || '-'}</td><td>${formatRp(d.amount)}</td>
-      <td><button class="del-payment" data-id="${doc.id}">Hapus</button></td>`;
-    paymentsTableBody.appendChild(tr);
+  alert('Pembayaran berhasil disimpan.');
+  computeBalances();
+  loadPayments();
+}
+
+// =============================================================
+// 5. MENAMPILKAN RIWAYAT PEMBAYARAN
+// =============================================================
+async function loadPayments() {
+  const table = document.getElementById('paymentTable');
+  table.innerHTML = '';
+
+  const snap = await db.collection('payments').orderBy('date', 'desc').get();
+
+  snap.forEach(doc => {
+    const p = doc.data();
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${p.date}</td>
+      <td>${p.memberId}</td>
+      <td>${p.amount}</td>
+    `;
+    table.appendChild(row);
   });
 }
 
-paymentsTableBody.addEventListener('click', async (e)=>{
-  if (e.target.classList.contains('del-payment')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus pembayaran?')) await db.collection('payments').doc(id).delete();
-  }
-});
-
-db.collection('payments').orderBy('createdAt','desc').onSnapshot(renderPayments);
-
-// ---------- BALANCE / AGGREGATE ----------
+// =============================================================
+// 6. HITUNG SALDO PER ANGGOTA (Pemakaian - Pembayaran)
+// =============================================================
 async function computeBalances() {
-  // get members
-  const membersSnap = await db.collection('members').get();
+  const table = document.getElementById('balanceTable');
+  table.innerHTML = '';
+
+  // Muat semua anggota
   const members = {};
-  membersSnap.forEach(m=> members[m.id] = { id: m.id, name: m.data().name, pay:0, use:0 });
+  const membersSnap = await db.collection('members').get();
+  membersSnap.forEach(m => {
+    members[m.id] = { name: m.data().name, use: 0, pay: 0 };
+  });
 
-  // sum usages per member
+  // Hitung total biaya per anggota dari usages
   const usagesSnap = await db.collection('usages').get();
-  usagesSnap.forEach(u=>{
-    const data = u.data();
-    const id = data.memberId;
-    if (id && members[id]) members[id].use += (data.biayaPerOrang  || 0);
+  usagesSnap.forEach(u => {
+    const d = u.data();
+    const id = d.memberId;
+    if (members[id]) members[id].use += (d.biayaPerOrang || 0);
   });
 
-  // sum payments per member
-  const paymentsSnap = await db.collection('payments').get();
-  paymentsSnap.forEach(p=>{
-    const data = p.data();
-    const id = data.memberId;
-    if (id && members[id]) members[id].pay += (data.amount || 0);
+  // Hitung total pembayaran
+  const paySnap = await db.collection('payments').get();
+  paySnap.forEach(p => {
+    const d = p.data();
+    const id = d.memberId;
+    if (members[id]) members[id].pay += (d.amount || 0);
   });
 
-  // render table
-  const tbody = $('balanceTable').querySelector('tbody');
-  tbody.innerHTML = '';
-  let totalDebt = 0;
-  let totalMembers = 0;
-  for (const id in members) {
+  // Tampilkan
+  Object.keys(members).forEach(id => {
     const m = members[id];
     const saldo = m.pay - m.use;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${m.name}</td><td>${formatRp(m.use)}</td><td>${formatRp(m.pay)}</td><td>${formatRp(saldo)}</td>`;
-    tbody.appendChild(tr);
-    if (saldo < 0) totalDebt += Math.abs(saldo);
-    totalMembers++;
-    // update members table saldo cell if present
-    const sdEl = document.getElementById(`saldo-${id}`);
-    if (sdEl) sdEl.textContent = formatRp(saldo);
-  }
-  $('totalDebt').textContent = formatRp(totalDebt);
-  $('totalMembers').textContent = totalMembers;
-}
 
-// recompute balances whenever changes happen (simple approach: on any collection change)
-db.collection('members').onSnapshot(computeBalances);
-db.collection('usages').onSnapshot(computeBalances);
-db.collection('payments').onSnapshot(computeBalances);
-
-// also compute on load
-computeBalances();
-
-// ---------- small helper: replace memberId with name in usages & payments tables
-// For better UX: fetch members map and patch tables (naive approach)
-async function attachNamesToTables() {
-  const membersSnap = await db.collection('members').get();
-  const map = {};
-  membersSnap.forEach(m=> map[m.id] = m.data().name);
-
-  // replace memberId cell texts in usages table
-  document.querySelectorAll('#usagesTable tbody tr').forEach(tr=>{
-    const cell = tr.children[1]; // member cell
-    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
-  });
-  document.querySelectorAll('#paymentsTable tbody tr').forEach(tr=>{
-    const cell = tr.children[1];
-    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${m.name}</td>
+      <td>${m.use.toFixed(0)}</td>
+      <td>${m.pay.toFixed(0)}</td>
+      <td class="${saldo < 0 ? 'minus' : 'plus'}">${saldo.toFixed(0)}</td>
+    `;
+    table.appendChild(row);
   });
 }
 
-// call attach periodically (simple)
-setInterval(attachNamesToTables, 2000);
+// =============================================================
+// 7. AUTO LOAD KETIKA PAGE BUKA
+// =============================================================
+window.onload = () => {
+  loadMembers();
+  loadUsages();
+  loadPayments();
+  computeBalances();
+};
