@@ -8,14 +8,6 @@ const formatRp = (n) => {
   return "Rp " + Number(n).toLocaleString('id-ID');
 };
 
-// ========== MODE MULTI INPUT ==========
-let useMultiMode = false;
-$('toggleMultiBtn')?.addEventListener('click', () => {
-  useMultiMode = !useMultiMode;
-  $('singleInputGroup').style.display = useMultiMode ? 'none' : 'flex';
-  $('multiInputGroup').style.display = useMultiMode ? 'flex' : 'none';
-});
-
 // ---------- Tab switching ----------
 document.querySelectorAll('.tab-btn').forEach(b=>{
   b.addEventListener('click', ()=> {
@@ -28,7 +20,6 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
 // ---------- MEMBERS ----------
 const membersTableBody = $('membersTable').querySelector('tbody');
 const memberSelects = [ $('useMember'), $('payMember') ];
-const multiSelect = $('useMembersMulti');
 
 $('addMemberBtn').addEventListener('click', async ()=>{
   const name = $('memberName').value.trim();
@@ -40,10 +31,7 @@ $('addMemberBtn').addEventListener('click', async ()=>{
 
 function renderMembers(snapshot) {
   membersTableBody.innerHTML = '';
-
   memberSelects.forEach(s=> s.innerHTML = '<option value="">Pilih anggota</option>');
-  multiSelect.innerHTML = ''; // MULTI SELECT
-
   snapshot.forEach(doc=>{
     const d = doc.data();
     const tr = document.createElement('tr');
@@ -51,23 +39,19 @@ function renderMembers(snapshot) {
       <td>${d.name}</td>
       <td>${d.phone||'-'}</td>
       <td id="saldo-${doc.id}">-</td>
-      <td><button class="del-member" data-id="${doc.id}">Hapus</button></td>
+      <td>
+        <button class="del-member" data-id="${doc.id}">Hapus</button>
+      </td>
     `;
     membersTableBody.appendChild(tr);
 
-    // add to single-select
+    // add to selects
     memberSelects.forEach(s=>{
       const opt = document.createElement('option');
       opt.value = doc.id;
       opt.textContent = d.name;
       s.appendChild(opt);
     });
-
-    // add to MULTI-SELECT
-    const opt2 = document.createElement('option');
-    opt2.value = doc.id;
-    opt2.textContent = d.name;
-    multiSelect.appendChild(opt2);
   });
 }
 
@@ -139,84 +123,42 @@ const usagesTableBody = $('usagesTable').querySelector('tbody');
 
 $('addUsageBtn').addEventListener('click', async ()=>{
   const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
-
-  // ambil harga per cock terbaru
+  const memberId = $('useMember').value || null;
+  const cock = Number($('useCocks').value) || 0;
+  const players = Number($('usePlayers').value) || 1;
+  if (!cock || cock <= 0) return alert('Masukkan jumlah cock dipakai (>0)');
+  // ambil harga per cock terbaru dari stocks (most recent)
   const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
   let hargaPerCock = 0;
   if (!q.empty) {
     const s = q.docs[0].data();
     hargaPerCock = s.hargaPerTabung / s.isiPerTabung;
   }
-
-  const cock = Number($('useCocks').value) || 0;
-  if (!cock || cock <= 0) return alert('Masukkan jumlah cock dipakai (>0)');
-
-  // ========== SINGLE MODE ==========
-  if (!useMultiMode) {
-    const memberId = $('useMember').value || null;
-    const players = Number($('usePlayers').value) || 1;
-
-    const totalBiaya = Math.round(cock * hargaPerCock);
-    const biayaPerOrang = Math.round(totalBiaya / Math.max(players,1));
-
-    await db.collection('usages').add({
-      tanggal,
-      memberId,
-      cock,
-      players,
-      hargaPerCock,
-      totalBiaya,
-      biayaPerOrang,
-      membersList: [],  // kosong
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    $('useCocks').value=''; $('usePlayers').value=''; $('useMember').value='';
-    return;
-  }
-
-  // ========== MULTI MODE ==========
-  const selectedIds = Array.from(multiSelect.selectedOptions).map(o=>o.value);
-  const players = selectedIds.length;
-
-  if (players === 0) return alert("Pilih minimal 1 pemain");
-
   const totalBiaya = Math.round(cock * hargaPerCock);
-  const biayaPerOrang = Math.round(totalBiaya / players);
+  const biayaPerOrang = Math.round(totalBiaya / Math.max(players,1));
 
-  // simpan sebagai 1 record (lebih rapi daripada 4 record terpisah)
   await db.collection('usages').add({
     tanggal,
+    memberId,
     cock,
     players,
-    memberId: null,
-    membersList: selectedIds,
     hargaPerCock,
     totalBiaya,
     biayaPerOrang,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
-  $('useCocks').value='';
-  multiSelect.value='';
+  $('useCocks').value=''; $('usePlayers').value=''; $('useMember').value='';
 });
 
 function renderUsages(snapshot) {
   usagesTableBody.innerHTML = '';
   snapshot.forEach(doc=>{
     const d = doc.data();
-    let nameDisplay = "-";
-
-    if (d.memberId) {
-      nameDisplay = d.memberId;
-    }
-    if (d.membersList && d.membersList.length > 0) {
-      nameDisplay = d.membersList.join(", ");
-    }
-
+    const name = d.memberId ? '—' : '-';
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${d.tanggal}</td>
-      <td>${nameDisplay}</td>
+      <td>${d.memberId || '-'}</td>
       <td>${d.cock}</td>
       <td>${d.players}</td>
       <td>${formatRp(d.totalBiaya)}</td>
@@ -271,7 +213,7 @@ paymentsTableBody.addEventListener('click', async (e)=>{
 
 db.collection('payments').orderBy('createdAt','desc').onSnapshot(renderPayments);
 
-// ---------- BALANCE ----------
+// ---------- BALANCE / AGGREGATE ----------
 async function computeBalances() {
   // get members
   const membersSnap = await db.collection('members').get();
@@ -281,22 +223,12 @@ async function computeBalances() {
   // sum usages per member
   const usagesSnap = await db.collection('usages').get();
   usagesSnap.forEach(u=>{
-    const d = u.data();
-
-    // SINGLE MODE
-    if (d.memberId && members[d.memberId]) {
-      members[d.memberId].use += (d.biayaPerOrang || 0);
-    }
-
-    // MULTI MODE
-    if (d.membersList && d.membersList.length > 0) {
-      d.membersList.forEach(id=>{
-        if (members[id]) members[id].use += (d.biayaPerOrang || 0);
-      });
-    }
+    const data = u.data();
+    const id = data.memberId;
+    if (id && members[id]) members[id].use += (data.biayaPerOrang  || 0);
   });
 
-  // sum payments
+  // sum payments per member
   const paymentsSnap = await db.collection('payments').get();
   paymentsSnap.forEach(p=>{
     const data = p.data();
@@ -307,17 +239,49 @@ async function computeBalances() {
   // render table
   const tbody = $('balanceTable').querySelector('tbody');
   tbody.innerHTML = '';
+  let totalDebt = 0;
+  let totalMembers = 0;
   for (const id in members) {
     const m = members[id];
     const saldo = m.pay - m.use;
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${m.name}</td>
-      <td>${formatRp(m.use)}</td>
-      <td>${formatRp(m.pay)}</td>
-      <td>${formatRp(saldo)}</td>`;
+    tr.innerHTML = `<td>${m.name}</td><td>${formatRp(m.use)}</td><td>${formatRp(m.pay)}</td><td>${formatRp(saldo)}</td>`;
     tbody.appendChild(tr);
+    if (saldo < 0) totalDebt += Math.abs(saldo);
+    totalMembers++;
+    // update members table saldo cell if present
+    const sdEl = document.getElementById(`saldo-${id}`);
+    if (sdEl) sdEl.textContent = formatRp(saldo);
   }
+  $('totalDebt').textContent = formatRp(totalDebt);
+  $('totalMembers').textContent = totalMembers;
 }
 
-$('reloadBalanceBtn')?.addEventListener('click', computeBalances);
+// recompute balances whenever changes happen (simple approach: on any collection change)
+db.collection('members').onSnapshot(computeBalances);
+db.collection('usages').onSnapshot(computeBalances);
+db.collection('payments').onSnapshot(computeBalances);
+
+// also compute on load
+computeBalances();
+
+// ---------- small helper: replace memberId with name in usages & payments tables
+// For better UX: fetch members map and patch tables (naive approach)
+async function attachNamesToTables() {
+  const membersSnap = await db.collection('members').get();
+  const map = {};
+  membersSnap.forEach(m=> map[m.id] = m.data().name);
+
+  // replace memberId cell texts in usages table
+  document.querySelectorAll('#usagesTable tbody tr').forEach(tr=>{
+    const cell = tr.children[1]; // member cell
+    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
+  });
+  document.querySelectorAll('#paymentsTable tbody tr').forEach(tr=>{
+    const cell = tr.children[1];
+    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
+  });
+}
+
+// call attach periodically (simple)
+setInterval(attachNamesToTables, 2000);
