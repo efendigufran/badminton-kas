@@ -295,20 +295,47 @@ async function computeBalances() {
   // render table
   const tbody = $('balanceTable').querySelector('tbody');
   tbody.innerHTML = '';
-  let totalDebt = 0;
-  let totalMembers = 0;
+  
+  let rows = [];
+  
+  // ubah members object → array berisi {id, name, use, pay, saldo, absSaldo}
   for (const id in members) {
     const m = members[id];
     const saldo = m.pay - m.use;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${m.name}</td><td>${formatRp(m.use)}</td><td>${formatRp(m.pay)}</td><td>${formatRp(saldo)}</td>`;
-    tbody.appendChild(tr);
-    if (saldo < 0) totalDebt += Math.abs(saldo);
-    totalMembers++;
-    // update members table saldo cell if present
-    const sdEl = document.getElementById(`saldo-${id}`);
-    if (sdEl) sdEl.textContent = formatRp(saldo);
+    rows.push({
+      id,
+      name: m.name,
+      use: m.use,
+      pay: m.pay,
+      saldo,
+      absSaldo: Math.abs(saldo)
+    });
   }
+  
+  // SORT DESC ABSOLUTE SALDO
+  rows.sort((a, b) => b.absSaldo - a.absSaldo);
+  
+  let totalDebt = 0;
+  let totalMembers = rows.length;
+  
+  // render hasil urutan
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.name}</td>
+      <td>${formatRp(r.use)}</td>
+      <td>${formatRp(r.pay)}</td>
+      <td>${formatRp(r.saldo)}</td>
+    `;
+    tbody.appendChild(tr);
+  
+    if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
+  
+    // update saldo pada tabel anggota
+    const sdEl = document.getElementById(`saldo-${r.id}`);
+    if (sdEl) sdEl.textContent = formatRp(r.saldo);
+  });
+
   $('totalDebt').textContent = formatRp(totalDebt);
   $('totalMembers').textContent = totalMembers;
 }
