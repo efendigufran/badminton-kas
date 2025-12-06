@@ -19,43 +19,55 @@ document.querySelectorAll('.tab-btn').forEach(b=>{
 
 // ---------- MEMBERS ----------
 const membersTableBody = $('membersTable').querySelector('tbody');
-const memberSelects = [ $('useMembers'), $('payMember') ];
+const memberSelects = [ $('payMember') ];  // useMembers terisi berbeda
 
 $('addMemberBtn').addEventListener('click', async ()=>{
   const name = $('memberName').value.trim();
   const phone = $('memberPhone').value.trim();
   if (!name) return alert('Masukkan nama anggota');
-  await db.collection('members').add({ 
-    name, 
-    phone, 
-    createdAt: firebase.firestore.FieldValue.serverTimestamp() 
+
+  await db.collection('members').add({
+    name,
+    phone,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  $('memberName').value=''; 
+
+  $('memberName').value='';
   $('memberPhone').value='';
 });
 
+// tampilkan list member + populate select
 function renderMembers(snapshot) {
   membersTableBody.innerHTML = '';
-  memberSelects.forEach(s=> {
-    if (s.id === "useMembers") {
-      s.innerHTML = ''; // multi-select tidak butuh opsi kosong
-    } else {
-      s.innerHTML = '<option value="">Pilih anggota</option>';
-    }
+
+  // reset select pembayaran
+  memberSelects.forEach(s=>{
+    s.innerHTML = '<option value="">Pilih anggota</option>';
   });
+
+  // reset multi-select
+  $('useMembers').innerHTML = '';
 
   snapshot.forEach(doc=>{
     const d = doc.data();
+
+    // render table
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${d.name}</td>
-      <td>${d.phone||'-'}</td>
+      <td>${d.phone || '-'}</td>
       <td id="saldo-${doc.id}">-</td>
       <td><button class="del-member" data-id="${doc.id}">Hapus</button></td>
     `;
     membersTableBody.appendChild(tr);
 
-    // Add to selects
+    // add to multi-select (usages)
+    const multi = document.createElement('option');
+    multi.value = doc.id;
+    multi.textContent = d.name;
+    $('useMembers').appendChild(multi);
+
+    // add ke select pembayaran
     memberSelects.forEach(s=>{
       const opt = document.createElement('option');
       opt.value = doc.id;
@@ -65,7 +77,7 @@ function renderMembers(snapshot) {
   });
 }
 
-membersTableBody.addEventListener('click', async (e)=>{
+membersTableBody.addEventListener('click', async e=>{
   if (e.target.classList.contains('del-member')) {
     const id = e.target.dataset.id;
     if (confirm('Hapus anggota?')) {
@@ -74,7 +86,9 @@ membersTableBody.addEventListener('click', async (e)=>{
   }
 });
 
+// subscribe
 db.collection('members').orderBy('name').onSnapshot(renderMembers);
+
 
 // ---------- STOCKS ----------
 const stocksTableBody = $('stocksTable').querySelector('tbody');
@@ -85,10 +99,7 @@ $('addStockBtn').addEventListener('click', async ()=>{
   const tabung = Number($('stockCans').value) || 0;
   const isiPerTabung = Number($('stockPerCan').value) || 0;
   const hargaPerTabung = Number($('stockPricePerCan').value) || 0;
-
-  if (!tabung || !isiPerTabung || !hargaPerTabung)
-    return alert('Isi semua kolom stok dengan angka > 0');
-
+  if (!tabung || !isiPerTabung || !hargaPerTabung) return alert('Isi semua kolom stok dengan angka > 0');
   await db.collection('stocks').add({
     tanggal,
     jenis,
@@ -97,70 +108,56 @@ $('addStockBtn').addEventListener('click', async ()=>{
     hargaPerTabung,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-
-  $('stockType').value=''; 
-  $('stockCans').value=''; 
-  $('stockPerCan').value=''; 
-  $('stockPricePerCan').value='';
+  $('stockType').value=''; $('stockCans').value=''; $('stockPerCan').value=''; $('stockPricePerCan').value='';
 });
 
 function renderStocks(snapshot) {
   stocksTableBody.innerHTML = '';
   let totalCock = 0;
-
   snapshot.forEach(doc=>{
     const d = doc.data();
     const hargaPerCock = d.hargaPerTabung && d.isiPerTabung ? (d.hargaPerTabung / d.isiPerTabung) : 0;
-
     totalCock += (d.tabung||0) * (d.isiPerTabung||0);
-
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${d.tanggal || '-'}</td>
+    tr.innerHTML = `<td>${d.tanggal || '-'}</td>
       <td>${d.jenis}</td>
       <td>${d.tabung}</td>
       <td>${d.isiPerTabung}</td>
       <td>${formatRp(d.hargaPerTabung)}</td>
       <td>${formatRp(Math.round(hargaPerCock))}</td>
-      <td><button class="del-stock" data-id="${doc.id}">Hapus</button></td>
-    `;
+      <td><button class="del-stock" data-id="${doc.id}">Hapus</button></td>`;
     stocksTableBody.appendChild(tr);
   });
-
   $('totalStock').textContent = totalCock;
 }
 
 stocksTableBody.addEventListener('click', async (e)=>{
   if (e.target.classList.contains('del-stock')) {
     const id = e.target.dataset.id;
-    if (confirm('Hapus data stok?')) 
-      await db.collection('stocks').doc(id).delete();
+    if (confirm('Hapus data stok?')) await db.collection('stocks').doc(id).delete();
   }
 });
 
+// listen stocks ordered newest-first
 db.collection('stocks').orderBy('createdAt','desc').onSnapshot(renderStocks);
 
-// ---------- USAGES (Multi Select Version) ----------
+// ---------- USAGES ----------
 const usagesTableBody = $('usagesTable').querySelector('tbody');
 
 $('addUsageBtn').addEventListener('click', async ()=>{
   const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
   const cock = Number($('useCocks').value) || 0;
+  const playersTotal = Number($('usePlayers').value) || 1;
 
-  const selectedOptionEls = Array.from($('useMembers').selectedOptions);
-  const memberIds = selectedOptionEls.map(o => o.value);
+  // ambil multiple selected members
+  const selected = Array.from($('useMembers').selectedOptions).map(o => o.value);
 
-  const players = memberIds.length; // otomatis jumlah pemain dari multi-select
+  if (cock <= 0) return alert("Jumlah cock harus > 0");
+  if (selected.length === 0)
+    return alert("Pilih minimal satu pemain dari daftar anggota");
 
-  if (players === 0) return alert("Pilih minimal 1 pemain!");
-  if (!cock || cock <= 0) return alert("Masukkan jumlah cock (>0)");
-
-  // ambil harga terbaru
-  const q = await db.collection('stocks')
-    .orderBy('createdAt','desc')
-    .limit(1)
-    .get();
-
+  // ambil harga per cock terbaru
+  const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
   let hargaPerCock = 0;
   if (!q.empty) {
     const s = q.docs[0].data();
@@ -168,21 +165,29 @@ $('addUsageBtn').addEventListener('click', async ()=>{
   }
 
   const totalBiaya = Math.round(cock * hargaPerCock);
-  const biayaPerOrang = Math.round(totalBiaya / Math.max(players,1));
+  const biayaPerOrang = Math.round(totalBiaya / playersTotal);
 
-  await db.collection('usages').add({
-    tanggal,
-    memberIds,
-    cock,
-    players,
-    hargaPerCock,
-    totalBiaya,
-    biayaPerOrang,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  // insert record per anggota
+  const batch = db.batch();
+  selected.forEach(memberId=>{
+    const ref = db.collection('usages').doc();
+    batch.set(ref, {
+      tanggal,
+      memberId,
+      cock,
+      players: playersTotal,
+      hargaPerCock,
+      totalBiaya,
+      biayaPerOrang,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
   });
 
+  await batch.commit();
+
   $('useCocks').value='';
-  $('useMembers').value='';
+  $('usePlayers').value='';
+  $('useMembers').selectedIndex = -1;
 });
 
 function renderUsages(snapshot) {
@@ -191,12 +196,10 @@ function renderUsages(snapshot) {
   snapshot.forEach(doc=>{
     const d = doc.data();
 
-    const names = (d.memberIds || []).join(", ");
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${d.tanggal}</td>
-      <td>${names || '-'}</td>
+      <td data-id="${d.memberId}" class="usage-membername">Loading...</td>
       <td>${d.cock}</td>
       <td>${d.players}</td>
       <td>${formatRp(d.totalBiaya)}</td>
@@ -205,17 +208,30 @@ function renderUsages(snapshot) {
     `;
     usagesTableBody.appendChild(tr);
   });
+
+  // replace memberId → memberName
+  db.collection('members').get().then(snap=>{
+    const map = {};
+    snap.forEach(m => map[m.id] = m.data().name);
+
+    document.querySelectorAll('.usage-membername').forEach(td=>{
+      const id = td.dataset.id;
+      td.textContent = map[id] || '-';
+    });
+  });
 }
 
-usagesTableBody.addEventListener('click', async (e)=>{
+usagesTableBody.addEventListener('click', async e=>{
   if (e.target.classList.contains('del-usage')) {
     const id = e.target.dataset.id;
-    if (confirm('Hapus pemakaian?')) 
+    if (confirm('Hapus pemakaian?')) {
       await db.collection('usages').doc(id).delete();
+    }
   }
 });
 
 db.collection('usages').orderBy('createdAt','desc').onSnapshot(renderUsages);
+
 
 // ---------- PAYMENTS ----------
 const paymentsTableBody = $('paymentsTable').querySelector('tbody');
@@ -224,33 +240,22 @@ $('addPaymentBtn').addEventListener('click', async ()=>{
   const memberId = $('payMember').value;
   const date = $('payDate').value || new Date().toISOString().slice(0,10);
   const amount = Number($('payAmount').value) || 0;
-
   if (!memberId) return alert('Pilih anggota');
-  if (!amount || amount <= 0) return alert('Masukkan jumlah pembayaran >0');
-
+  if (!amount || amount <= 0) return alert('Masukkan jumlah pembayaran > 0');
   await db.collection('payments').add({
-    memberId, 
-    date, 
-    amount,
+    memberId, date, amount,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-
-  $('payAmount').value=''; 
-  $('payMember').value='';
+  $('payAmount').value=''; $('payMember').value='';
 });
 
 function renderPayments(snapshot) {
   paymentsTableBody.innerHTML = '';
-
   snapshot.forEach(doc=>{
     const d = doc.data();
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${d.date}</td>
-      <td>${d.memberId || '-'}</td>
-      <td>${formatRp(d.amount)}</td>
-      <td><button class="del-payment" data-id="${doc.id}">Hapus</button></td>
-    `;
+    tr.innerHTML = `<td>${d.date}</td><td>${d.memberId || '-'}</td><td>${formatRp(d.amount)}</td>
+      <td><button class="del-payment" data-id="${doc.id}">Hapus</button></td>`;
     paymentsTableBody.appendChild(tr);
   });
 }
@@ -258,70 +263,81 @@ function renderPayments(snapshot) {
 paymentsTableBody.addEventListener('click', async (e)=>{
   if (e.target.classList.contains('del-payment')) {
     const id = e.target.dataset.id;
-    if (confirm('Hapus pembayaran?')) 
-      await db.collection('payments').doc(id).delete();
+    if (confirm('Hapus pembayaran?')) await db.collection('payments').doc(id).delete();
   }
 });
 
 db.collection('payments').orderBy('createdAt','desc').onSnapshot(renderPayments);
 
-// ---------- BALANCE (with multi memberIds) ----------
+// ---------- BALANCE / AGGREGATE ----------
 async function computeBalances() {
-
-  // --- LOAD MEMBERS ---
+  // get members
   const membersSnap = await db.collection('members').get();
   const members = {};
-  membersSnap.forEach(m=>{
-    members[m.id] = { 
-      id: m.id, 
-      name: m.data().name,
-      pay: 0,
-      use: 0
-    };
-  });
+  membersSnap.forEach(m=> members[m.id] = { id: m.id, name: m.data().name, pay:0, use:0 });
 
-  // --- SUM USAGES ---
+  // sum usages per member
   const usagesSnap = await db.collection('usages').get();
   usagesSnap.forEach(u=>{
     const data = u.data();
-    const biaya = data.biayaPerOrang || 0;
-
-    (data.memberIds || []).forEach(id=>{
-      if (members[id]) {
-        members[id].use += biaya;
-      }
-    });
+    const id = data.memberId;
+    if (id && members[id]) members[id].use += (data.biayaPerOrang  || 0);
   });
 
-  // --- SUM PAYMENTS ---
+  // sum payments per member
   const paymentsSnap = await db.collection('payments').get();
   paymentsSnap.forEach(p=>{
     const data = p.data();
-    if (members[data.memberId]) {
-      members[data.memberId].pay += (data.amount || 0);
-    }
+    const id = data.memberId;
+    if (id && members[id]) members[id].pay += (data.amount || 0);
   });
 
-  // --- RENDER TABLE ---
+  // render table
   const tbody = $('balanceTable').querySelector('tbody');
   tbody.innerHTML = '';
-
   let totalDebt = 0;
   let totalMembers = 0;
-
   for (const id in members) {
     const m = members[id];
     const saldo = m.pay - m.use;
-
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${m.name}</td>
-      <td>${formatRp(m.use)}</td>
-      <td>${formatRp(m.pay)}</td>
-      <td>${formatRp(saldo)}</td>
-    `;
+    tr.innerHTML = `<td>${m.name}</td><td>${formatRp(m.use)}</td><td>${formatRp(m.pay)}</td><td>${formatRp(saldo)}</td>`;
     tbody.appendChild(tr);
+    if (saldo < 0) totalDebt += Math.abs(saldo);
+    totalMembers++;
+    // update members table saldo cell if present
+    const sdEl = document.getElementById(`saldo-${id}`);
+    if (sdEl) sdEl.textContent = formatRp(saldo);
   }
+  $('totalDebt').textContent = formatRp(totalDebt);
+  $('totalMembers').textContent = totalMembers;
 }
 
-$('refreshBalanceBtn').addEventListener('click', computeBalances);
+// recompute balances whenever changes happen (simple approach: on any collection change)
+db.collection('members').onSnapshot(computeBalances);
+db.collection('usages').onSnapshot(computeBalances);
+db.collection('payments').onSnapshot(computeBalances);
+
+// also compute on load
+computeBalances();
+
+// ---------- small helper: replace memberId with name in usages & payments tables
+// For better UX: fetch members map and patch tables (naive approach)
+async function attachNamesToTables() {
+  const membersSnap = await db.collection('members').get();
+  const map = {};
+  membersSnap.forEach(m=> map[m.id] = m.data().name);
+
+  // replace memberId cell texts in usages table
+  document.querySelectorAll('#usagesTable tbody tr').forEach(tr=>{
+    const cell = tr.children[1]; // member cell
+    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
+  });
+  document.querySelectorAll('#paymentsTable tbody tr').forEach(tr=>{
+    const cell = tr.children[1];
+    if (cell && map[cell.textContent]) cell.textContent = map[cell.textContent];
+  });
+}
+
+// call attach periodically (simple)
+setInterval(attachNamesToTables, 2000);
