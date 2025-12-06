@@ -15,7 +15,3 @@ table tbody td { padding:8px; border-bottom:1px solid #eee; }
 .cards { display:flex; gap:12px; margin-bottom:12px; }
 .card { background:#fff; border:1px solid #eee; padding:12px; border-radius:8px; min-width:150px; text-align:center;}
 footer { text-align:center; padding:12px; color:#666; }
-#useMembers {
-  height: 40px;     /* tinggi dropdown */
-  overflow-y: auto;
-}
