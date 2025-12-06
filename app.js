@@ -314,7 +314,7 @@ async function computeBalances() {
 }
 
 // recompute balances whenever changes happen (simple approach: on any collection change)
-db.collection('members').onSnapshot(computeBalances);
+db.collection('members').orderBy('name').onSnapshot(computeBalances);
 db.collection('usages').onSnapshot(computeBalances);
 db.collection('payments').onSnapshot(computeBalances);
 
