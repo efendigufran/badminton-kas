@@ -295,53 +295,26 @@ async function computeBalances() {
   // render table
   const tbody = $('balanceTable').querySelector('tbody');
   tbody.innerHTML = '';
-  
-  let rows = [];
-  
-  // ubah members object → array berisi {id, name, use, pay, saldo, absSaldo}
+  let totalDebt = 0;
+  let totalMembers = 0;
   for (const id in members) {
     const m = members[id];
     const saldo = m.pay - m.use;
-    rows.push({
-      id,
-      name: m.name,
-      use: m.use,
-      pay: m.pay,
-      saldo,
-      absSaldo: Math.abs(saldo)
-    });
-  }
-  
-  // SORT DESC ABSOLUTE SALDO
-  rows.sort((a, b) => b.absSaldo - a.absSaldo);
-  
-  let totalDebt = 0;
-  let totalMembers = rows.length;
-  
-  // render hasil urutan
-  rows.forEach(r => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.name}</td>
-      <td>${formatRp(r.use)}</td>
-      <td>${formatRp(r.pay)}</td>
-      <td>${formatRp(r.saldo)}</td>
-    `;
+    tr.innerHTML = `<td>${m.name}</td><td>${formatRp(m.use)}</td><td>${formatRp(m.pay)}</td><td>${formatRp(saldo)}</td>`;
     tbody.appendChild(tr);
-  
-    if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
-  
-    // update saldo pada tabel anggota
-    const sdEl = document.getElementById(`saldo-${r.id}`);
-    if (sdEl) sdEl.textContent = formatRp(r.saldo);
-  });
-
+    if (saldo < 0) totalDebt += Math.abs(saldo);
+    totalMembers++;
+    // update members table saldo cell if present
+    const sdEl = document.getElementById(`saldo-${id}`);
+    if (sdEl) sdEl.textContent = formatRp(saldo);
+  }
   $('totalDebt').textContent = formatRp(totalDebt);
   $('totalMembers').textContent = totalMembers;
 }
 
 // recompute balances whenever changes happen (simple approach: on any collection change)
-db.collection('members').orderBy('name').onSnapshot(computeBalances);
+db.collection('members').onSnapshot(computeBalances);
 db.collection('usages').onSnapshot(computeBalances);
 db.collection('payments').onSnapshot(computeBalances);
 
