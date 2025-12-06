@@ -319,22 +319,32 @@ async function computeBalances() {
   let totalMembers = rows.length;
   
   // render hasil urutan
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.name}</td>
-      <td>${formatRp(r.use)}</td>
-      <td>${formatRp(r.pay)}</td>
-      <td>${formatRp(r.saldo)}</td>
-    `;
-    tbody.appendChild(tr);
-  
-    if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
-  
-    // update saldo pada tabel anggota
-    const sdEl = document.getElementById(`saldo-${r.id}`);
-    if (sdEl) sdEl.textContent = formatRp(r.saldo);
-  });
+rows.forEach(r => {
+  const tr = document.createElement('tr');
+
+  // tentukan style saldo
+  let saldoClass = '';
+  if (r.saldo < 0) {
+    saldoClass = 'saldo-minus';      // merah
+  } else if (r.saldo > 0) {
+    saldoClass = 'saldo-plus';       // putih + hijau
+  }
+
+  tr.innerHTML = `
+    <td>${r.name}</td>
+    <td>${formatRp(r.use)}</td>
+    <td>${formatRp(r.pay)}</td>
+    <td class="${saldoClass}">${formatRp(r.saldo)}</td>
+  `;
+
+  tbody.appendChild(tr);
+
+  if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
+
+  // update saldo pada elemen lain bila ada
+  const sdEl = document.getElementById(`saldo-${r.id}`);
+  if (sdEl) sdEl.textContent = formatRp(r.saldo);
+});
   $('totalDebt').textContent = formatRp(totalDebt);
   $('totalMembers').textContent = totalMembers;
 }
