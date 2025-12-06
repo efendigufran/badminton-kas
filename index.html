@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Badminton Kas — Template</title>
+  <title>GASS</title>
   <link rel="stylesheet" href="style.css" />
   <!-- Firebase compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -14,7 +14,7 @@
 </head>
 <body>
   <header>
-    <h1>Badminton Kas</h1>
+    <h1>GASS</h1>
     <nav>
       <button class="tab-btn" data-target="dashboard">Dashboard</button>
       <button class="tab-btn" data-target="members">Members</button>
@@ -90,8 +90,8 @@
       <h2>Pencatatan Pemakaian Shuttlecock</h2>
       <div class="form-row">
         <input id="useDate" type="date" />
-        <select id="useMember">
-          <option value="">Pilih anggota (opsional)</option>
+        <select id="useMember" multiple="">
+          <!-- <option value="">Pilih anggota (opsional)</option> -->
         </select>
         <input id="useCocks" type="number" min="0" value="1" placeholder="Jumlah cock dipakai" />
         <input id="usePlayers" type="number" min="1" value="4" placeholder="Jumlah pemain saat itu" />
@@ -124,7 +124,7 @@
   </main>
 
   <footer>
-    <small>Template — Badminton Kas • Siap pakai dengan Firebase Firestore</small>
+    <small>Buku Kas Badminton • FK-Studio</small>
   </footer>
 
   <script src="app.js"></script>
