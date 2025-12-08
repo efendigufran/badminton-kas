@@ -322,7 +322,6 @@ async function computeBalances() {
   });
   
   let totalDebt = 0;
-  let totalCredit = 0;
   let totalMembers = rows.length;
   
   // render hasil urutan
@@ -351,17 +350,9 @@ rows.forEach(r => {
   // update saldo pada elemen lain bila ada
   const sdEl = document.getElementById(`saldo-${r.id}`);
   if (sdEl) sdEl.textContent = formatRp(r.saldo);
-  
-
-  if (r.pay < 0) totalDebt += Math.abs(r.pay);
-
-  // update pay pada elemen lain bila ada
-  const sdE2 = document.getElementById(`pay-${r.id}`);
-  if (sdE2) sdE2.textContent = formatRp(r.pay);
 });
 
   $('totalDebt').textContent = formatRp(totalDebt);
-  $('totalCredit').textContent = formatRp(totalCredit);
   $('totalMembers').textContent = totalMembers;
 }
 
