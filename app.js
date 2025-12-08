@@ -305,8 +305,10 @@ async function computeBalances() {
     rows.push({
       id,
       name: m.name,
-      use: m.use,
-      pay: m.pay,
+      // use: m.use,
+      // pay: m.pay,
+      pay: Number(m.pay) || 0,
+      use: Number(m.use) || 0,
       saldo,
       absSaldo: Math.abs(saldo)
     });
