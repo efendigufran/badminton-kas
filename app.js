@@ -322,6 +322,7 @@ async function computeBalances() {
   });
   
   let totalDebt = 0;
+  let totalCredit = 0;     // ← TAMBAHAN
   let totalMembers = rows.length;
   
   // render hasil urutan
@@ -347,6 +348,9 @@ rows.forEach(r => {
 
   if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
 
+  // hitung total credit
+  totalCredit += r.pay;     // ← TAMBAHKAN INI
+  
   // update saldo pada elemen lain bila ada
   const sdEl = document.getElementById(`saldo-${r.id}`);
   if (sdEl) sdEl.textContent = formatRp(r.saldo);
@@ -354,6 +358,7 @@ rows.forEach(r => {
 
   $('totalDebt').textContent = formatRp(totalDebt);
   $('totalMembers').textContent = totalMembers;
+  $('totalCredit').textContent = formatRp(totalCredit);   // ← TAMBAHKAN INI
 }
 
 // recompute balances whenever changes happen (simple approach: on any collection change)
