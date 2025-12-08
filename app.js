@@ -356,8 +356,8 @@ rows.forEach(r => {
   if (r.pay < 0) totalDebt += Math.abs(r.pay);
 
   // update pay pada elemen lain bila ada
-  const sdEl = document.getElementById(`pay-${r.id}`);
-  if (sdEl) sdEl.textContent = formatRp(r.pay);
+  const sdE2 = document.getElementById(`pay-${r.id}`);
+  if (sdE2) sdE2.textContent = formatRp(r.pay);
 });
 
   $('totalDebt').textContent = formatRp(totalDebt);
