@@ -313,7 +313,13 @@ async function computeBalances() {
   }
   
   // SORT DESC ABSOLUTE SALDO
-  rows.sort((a, b) => b.absSaldo - a.absSaldo);
+  rows.sort((a, b) => {
+    // urutan 1: absSaldo DESC
+    if (b.absSaldo !== a.absSaldo) return b.absSaldo - a.absSaldo;
+  
+    // urutan 2: pay DESC
+    return b.pay - a.pay;
+  });
   
   let totalDebt = 0;
   let totalMembers = rows.length;
