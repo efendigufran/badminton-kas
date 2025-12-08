@@ -321,6 +321,15 @@ arr.forEach(m => {
   const saldo = m.pay - m.use;
 
   const tr = document.createElement('tr');
+
+  // tentukan style saldo
+  let saldoClass = '';
+  if (r.saldo < 0) {
+    saldoClass = 'saldo-minus';      // merah
+  } else if (r.saldo > 0) {
+    saldoClass = 'saldo-plus';       // putih + hijau
+  }  
+  
   tr.innerHTML = `
     <td>${m.name}</td>
     <td>${formatRp(m.use)}</td>
