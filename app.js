@@ -292,59 +292,50 @@ async function computeBalances() {
     if (id && members[id]) members[id].pay += (data.amount || 0);
   });
 
-  // render table
-  const tbody = $('balanceTable').querySelector('tbody');
-  tbody.innerHTML = '';
-  
-  let rows = [];
-  
-  // ubah members object → array berisi {id, name, use, pay, saldo, absSaldo}
-  for (const id in members) {
-    const m = members[id];
-    const saldo = m.pay - m.use;
-    rows.push({
-      id,
-      name: m.name,
-      use: m.use,
-      pay: m.pay,
-      saldo,
-      absSaldo: Math.abs(saldo)
-    });
-  }
-  
-  // SORT DESC ABSOLUTE SALDO
-  rows.sort((a, b) => b.absSaldo - a.absSaldo);
-  
-  let totalDebt = 0;
-  let totalMembers = rows.length;
-  
-  // render hasil urutan
-rows.forEach(r => {
+// render table (sorted)
+const tbody = $('balanceTable').querySelector('tbody');
+tbody.innerHTML = '';
+
+let totalDebt = 0;
+
+// Convert members object -> array
+const arr = Object.values(members);
+
+// Sort DESC based on:
+// 1) absolute saldo (besar rugi/lebih besar simpanan muncul di atas)
+// 2) pay (descending)
+arr.sort((a, b) => {
+  const saldoA = a.pay - a.use;
+  const saldoB = b.pay - b.use;
+  const absA = Math.abs(saldoA);
+  const absB = Math.abs(saldoB);
+
+  // urutkan berdasarkan abs(saldo) desc
+  if (absB !== absA) return absB - absA;
+
+  // jika sama, urutkan berdasarkan pay desc
+  return (b.pay || 0) - (a.pay || 0);
+});
+
+arr.forEach(m => {
+  const saldo = m.pay - m.use;
+
   const tr = document.createElement('tr');
-
-  // tentukan style saldo
-  let saldoClass = '';
-  if (r.saldo < 0) {
-    saldoClass = 'saldo-minus';      // merah
-  } else if (r.saldo > 0) {
-    saldoClass = 'saldo-plus';       // putih + hijau
-  }
-
   tr.innerHTML = `
-    <td>${r.name}</td>
-    <td>${formatRp(r.use)}</td>
-    <td>${formatRp(r.pay)}</td>
-    <td class="${saldoClass}">${formatRp(r.saldo)}</td>
+    <td>${m.name}</td>
+    <td>${formatRp(m.use)}</td>
+    <td>${formatRp(m.pay)}</td>
+    <td>${formatRp(saldo)}</td>
   `;
-
   tbody.appendChild(tr);
 
-  if (r.saldo < 0) totalDebt += Math.abs(r.saldo);
+  if (saldo < 0) totalDebt += Math.abs(saldo);
 
-  // update saldo pada elemen lain bila ada
-  const sdEl = document.getElementById(`saldo-${r.id}`);
-  if (sdEl) sdEl.textContent = formatRp(r.saldo);
+  // update saldo pada tabel anggota (jika ada)
+  const sdEl = document.getElementById(`saldo-${m.id}`);
+  if (sdEl) sdEl.textContent = formatRp(saldo);
 });
+
   $('totalDebt').textContent = formatRp(totalDebt);
   $('totalMembers').textContent = totalMembers;
 }
