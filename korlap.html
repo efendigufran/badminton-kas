@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GASS - test 3</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Firebase compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <!-- Your firebase config -->
+  <script src="firebase.js"></script>
+</head>
+<body>
+  <header>
+    <h1>GASS</h1>
+    <nav>
+      <button class="tab-btn" data-target="dashboard">Dashboard</button>
+      <button class="tab-btn" data-target="members">Members</button>
+      <button class="tab-btn" data-target="stocks">Stock Shuttlecock</button>
+      <button class="tab-btn" data-target="usages">Pemakaian</button>
+      <button class="tab-btn" data-target="payments">Pembayaran</button>
+    </nav>
+    <div id="auth-area"></div>
+  </header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="tab">
+      <h2>Dashboard</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>Total Members</h3>
+          <p id="totalMembers">0</p>
+        </div>
+        <div class="card">
+          <h3>Total Stock (cock)</h3>
+          <p id="totalStock">0</p>
+        </div>
+        <div class="card">
+          <h3>Total Tunggakan (Rp)</h3>
+          <p id="totalDebt">Rp 0</p>
+        </div>
+      </div>
+
+      <h3>Ringkasan Saldo Per Anggota</h3>
+      <table id="balanceTable">
+        <thead><tr><th>Nama</th><th>Pakai (Rp)</th><th>Bayar (Rp)</th><th>Saldo (Rp)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- MEMBERS -->
+    <section id="members" class="tab" style="display:none">
+      <h2>Daftar Anggota</h2>
+      <div class="form-row">
+        <input id="memberName" placeholder="Nama anggota" />
+        <input id="memberPhone" placeholder="No HP (opsional)" />
+        <button id="addMemberBtn">Tambahkan</button>
+      </div>
+
+      <table id="membersTable">
+        <thead><tr><th>Nama</th><th>HP</th><th>Saldo</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- STOCKS -->
+    <section id="stocks" class="tab" style="display:none">
+      <h2>Stok & Harga Shuttlecock</h2>
+      <div class="form-row">
+        <input id="stockDate" type="date" />
+        <input id="stockType" placeholder="Jenis (ex: Nylon/Feather)" />
+        <input id="stockCans" type="number" min="0" placeholder="Jumlah Tabung" />
+        <input id="stockPerCan" type="number" min="0" placeholder="Isi per Tabung (cock)" />
+        <input id="stockPricePerCan" type="number" min="0" placeholder="Harga per Tabung (Rp)" />
+        <button id="addStockBtn">Tambah Stok</button>
+      </div>
+
+      <h3>Stok Tersedia (daftar masuk terakhir diurutkan)</h3>
+      <table id="stocksTable">
+        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tabung</th><th>Isi/tabung</th><th>Harga/tabung</th><th>Harga/cock</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- USAGES -->
+    <section id="usages" class="tab" style="display:none">
+      <h2>Pencatatan Pemakaian Shuttlecock</h2>
+      <div class="form-row">
+        <input id="useDate" type="date" />
+        <select id="useMembers" multiple="">
+          <!-- <option value="">Pilih anggota (opsional)</option> -->
+        </select>
+        <input id="useCocks" type="number" min="0" value="1" placeholder="Jumlah cock dipakai" />
+        <input id="usePlayers" type="number" min="1" value="4" placeholder="Jumlah pemain saat itu" />
+        <button id="addUsageBtn">Catat Pemakaian</button>
+      </div>
+
+      <h3>Riwayat Pemakaian</h3>
+      <table id="usagesTable">
+        <thead><tr><th>Tanggal</th><th>Nama</th><th>Cock</th><th>Players</th><th>Total Biaya</th><th>Biaya/orang</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="payments" class="tab" style="display:none">
+      <h2>Pembayaran Anggota</h2>
+      <div class="form-row">
+        <select id="payMember"><option value="">Pilih anggota</option></select>
+        <input id="payDate" type="date" />
+        <input id="payAmount" type="number" min="0" placeholder="Jumlah (Rp)" />
+        <button id="addPaymentBtn">Catat Pembayaran</button>
+      </div>
+
+      <h3>Riwayat Pembayaran</h3>
+      <table id="paymentsTable">
+        <thead><tr><th>Tanggal</th><th>Nama</th><th>Jumlah (Rp)</th><th>Aksi</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <small>Buku Kas Badminton • FK-Studio</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
