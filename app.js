@@ -93,50 +93,113 @@ db.collection('members').orderBy('name').onSnapshot(renderMembers);
 // ---------- STOCKS ----------
 const stocksTableBody = $('stocksTable').querySelector('tbody');
 
-$('addStockBtn').addEventListener('click', async ()=>{
+function resetStockForm() {
+  $('editingStockId').value = '';
+  $('stockDate').value = '';
+  $('stockType').value = '';
+  $('stockCans').value = '';
+  $('stockPerCan').value = '';
+  $('stockPricePerCan').value = '';
+  $('addStockBtn').textContent = 'Tambah Stok';
+}
+
+$('addStockBtn').addEventListener('click', async ()=> {
+  const id = $('editingStockId').value;
+
   const tanggal = $('stockDate').value || new Date().toISOString().slice(0,10);
   const jenis = $('stockType').value || 'standard';
   const tabung = Number($('stockCans').value) || 0;
   const isiPerTabung = Number($('stockPerCan').value) || 0;
   const hargaPerTabung = Number($('stockPricePerCan').value) || 0;
-  if (!tabung || !isiPerTabung || !hargaPerTabung) return alert('Isi semua kolom stok dengan angka > 0');
-  await db.collection('stocks').add({
+
+  if (!tabung || !isiPerTabung || !hargaPerTabung) {
+    return alert('Isi semua kolom stok dengan angka > 0');
+  }
+
+  const payload = {
     tanggal,
     jenis,
     tabung,
     isiPerTabung,
     hargaPerTabung,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  $('stockType').value=''; $('stockCans').value=''; $('stockPerCan').value=''; $('stockPricePerCan').value='';
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  if (id) {
+    // 🔄 UPDATE
+    await db.collection('stocks').doc(id).update(payload);
+  } else {
+    // ➕ ADD
+    await db.collection('stocks').add({
+      ...payload,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  resetStockForm();
 });
+
 
 function renderStocks(snapshot) {
   stocksTableBody.innerHTML = '';
   let totalCock = 0;
-  snapshot.forEach(doc=>{
+
+  snapshot.forEach(doc => {
     const d = doc.data();
-    const hargaPerCock = d.hargaPerTabung && d.isiPerTabung ? (d.hargaPerTabung / d.isiPerTabung) : 0;
-    totalCock += (d.tabung||0) * (d.isiPerTabung||0);
+    const hargaPerCock = d.hargaPerTabung && d.isiPerTabung
+      ? d.hargaPerTabung / d.isiPerTabung
+      : 0;
+
+    totalCock += (d.tabung || 0) * (d.isiPerTabung || 0);
+
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${d.tanggal || '-'}</td>
+    tr.innerHTML = `
+      <td>${d.tanggal || '-'}</td>
       <td>${d.jenis}</td>
       <td>${d.tabung}</td>
       <td>${d.isiPerTabung}</td>
       <td>${formatRp(d.hargaPerTabung)}</td>
       <td>${formatRp(Math.round(hargaPerCock))}</td>
-      <td><button class="del-stock" data-id="${doc.id}">Hapus</button></td>`;
+      <td>
+        <button class="edit-stock" data-id="${doc.id}">Edit</button>
+        <button class="del-stock" data-id="${doc.id}">Hapus</button>
+      </td>
+    `;
+
     stocksTableBody.appendChild(tr);
   });
+
   $('totalStock').textContent = totalCock;
 }
 
-stocksTableBody.addEventListener('click', async (e)=>{
+
+stocksTableBody.addEventListener('click', async (e)=> {
+  const id = e.target.dataset.id;
+
+  // 📝 EDIT
+  if (e.target.classList.contains('edit-stock')) {
+    const doc = await db.collection('stocks').doc(id).get();
+    if (!doc.exists) return;
+
+    const d = doc.data();
+    $('editingStockId').value = id;
+    $('stockDate').value = d.tanggal;
+    $('stockType').value = d.jenis;
+    $('stockCans').value = d.tabung;
+    $('stockPerCan').value = d.isiPerTabung;
+    $('stockPricePerCan').value = d.hargaPerTabung;
+    $('addStockBtn').textContent = 'Update Stok';
+  }
+
+  // 🗑 DELETE
   if (e.target.classList.contains('del-stock')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus data stok?')) await db.collection('stocks').doc(id).delete();
+    if (confirm('Hapus data stok?')) {
+      await db.collection('stocks').doc(id).delete();
+      resetStockForm();
+    }
   }
 });
+
 
 // listen stocks ordered newest-first
 db.collection('stocks').orderBy('createdAt','desc').onSnapshot(renderStocks);
