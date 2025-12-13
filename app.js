@@ -182,7 +182,7 @@ stocksTableBody.addEventListener('click', async (e)=> {
     if (!doc.exists) return;
 
     const d = doc.data();
-    $('editingStockId').value = d.id;
+    $('editingStockId').value = id;
     $('stockDate').value = d.tanggal;
     $('stockType').value = d.jenis;
     $('stockCans').value = d.tabung;
