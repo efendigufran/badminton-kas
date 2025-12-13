@@ -125,8 +125,9 @@ $('addStockBtn').addEventListener('click', async ()=> {
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
-  if (id) {
+  if (id && typeof id === 'string') {
     // 🔄 UPDATE
+    console.log('UPDATE ID:', id);
     await db.collection('stocks').doc(id).update(payload);
   } else {
     // ➕ ADD
@@ -195,7 +196,11 @@ stocksTableBody.addEventListener('click', async (e)=> {
   if (e.target.classList.contains('del-stock')) {
     if (confirm('Hapus data stok?')) {
       await db.collection('stocks').doc(id).delete();
-      resetStockForm();
+    
+      // reset hanya jika yang dihapus sedang diedit
+      if ($('editingStockId').value === id) {
+        resetStockForm();
+      }
     }
   }
 });
