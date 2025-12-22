@@ -268,8 +268,11 @@ function renderUsages(snapshot) {
 
   snapshot.forEach(doc=>{
     const d = doc.data();
+    const cock = Number(d.cock) || 0;
+    const players = Number(d.players) || 1;
 
-    totalCockTerpakai += d.cock || 0;
+    totalCockTerpakai += cock / players;
+    // totalCockTerpakai += d.cock || 0;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
