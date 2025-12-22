@@ -91,6 +91,9 @@ db.collection('members').orderBy('name').onSnapshot(renderMembers);
 
 
 // ---------- STOCKS ----------
+let totalStockAwal = 0;
+let totalCockTerpakai = 0;
+
 const stocksTableBody = $('stocksTable').querySelector('tbody');
 
 function resetStockForm() {
@@ -140,56 +143,37 @@ $('addStockBtn').addEventListener('click', async ()=> {
   resetStockForm();
 });
 
-let totalStockAwal = 0;
-let totalCockTerpakai = 0;
 
-function renderUsages(snapshot) {
-  usagesTableBody.innerHTML = '';
-  totalCockTerpakai = 0;
+function renderStocks(snapshot) {
+  stocksTableBody.innerHTML = '';
+  totalStockAwal = 0;
 
-  snapshot.forEach(doc=>{
+  snapshot.forEach(doc => {
     const d = doc.data();
 
-    totalCockTerpakai += d.cock || 0;
+    totalStockAwal += (d.tabung || 0) * (d.isiPerTabung || 0);
+
+    const hargaPerCock = d.hargaPerTabung && d.isiPerTabung
+      ? d.hargaPerTabung / d.isiPerTabung
+      : 0;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${d.tanggal}</td>
-      <td data-id="${d.memberId}" class="usage-membername">Loading...</td>
-      <td>${d.cock}</td>
-      <td>${d.players}</td>
-      <td>${formatRp(d.totalBiaya)}</td>
-      <td>${formatRp(d.biayaPerOrang)}</td>
-      <td><button class="del-usage" data-id="${doc.id}">Hapus</button></td>
+      <td>${d.tanggal || '-'}</td>
+      <td>${d.jenis}</td>
+      <td>${d.tabung}</td>
+      <td>${d.isiPerTabung}</td>
+      <td>${formatRp(d.hargaPerTabung)}</td>
+      <td>${formatRp(Math.round(hargaPerCock))}</td>
+      <td>
+        <button class="edit-stock" data-id="${doc.id}">Edit</button>
+        <button class="del-stock" data-id="${doc.id}">Hapus</button>
+      </td>
     `;
-    usagesTableBody.appendChild(tr);
+    stocksTableBody.appendChild(tr);
   });
 
   updateStockSummary();
-
-  // mapping member name (tetap)
-  db.collection('members').get().then(snap=>{
-    const map = {};
-    snap.forEach(m => map[m.id] = m.data().name);
-    document.querySelectorAll('.usage-membername').forEach(td=>{
-      td.textContent = map[td.dataset.id] || '-';
-    });
-  });
-}
-
-function updateStockSummary() {
-  const stockSisa = totalStockAwal - totalCockTerpakai;
-
-  $('totalStockAwal').textContent = totalStockAwal;
-  $('totalStockTerpakai').textContent = totalCockTerpakai;
-  $('totalStockSisa').textContent = stockSisa;
-
-  // opsional: warning jika stok menipis
-  if (stockSisa < 20) {
-    $('totalStockSisa').style.color = 'red';
-  } else {
-    $('totalStockSisa').style.color = '';
-  }
 }
 
 
@@ -280,9 +264,12 @@ $('addUsageBtn').addEventListener('click', async ()=>{
 
 function renderUsages(snapshot) {
   usagesTableBody.innerHTML = '';
+  totalCockTerpakai = 0;
 
   snapshot.forEach(doc=>{
     const d = doc.data();
+
+    totalCockTerpakai += d.cock || 0;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -297,17 +284,33 @@ function renderUsages(snapshot) {
     usagesTableBody.appendChild(tr);
   });
 
-  // replace memberId → memberName
+  updateStockSummary();
+
+  // mapping member name (tetap)
   db.collection('members').get().then(snap=>{
     const map = {};
     snap.forEach(m => map[m.id] = m.data().name);
-
     document.querySelectorAll('.usage-membername').forEach(td=>{
-      const id = td.dataset.id;
-      td.textContent = map[id] || '-';
+      td.textContent = map[td.dataset.id] || '-';
     });
   });
 }
+
+function updateStockSummary() {
+  const stockSisa = totalStockAwal - totalCockTerpakai;
+
+  $('totalStockAwal').textContent = totalStockAwal;
+  $('totalStockTerpakai').textContent = totalCockTerpakai;
+  $('totalStockSisa').textContent = stockSisa;
+
+  // opsional: warning jika stok menipis
+  if (stockSisa < 20) {
+    $('totalStockSisa').style.color = 'red';
+  } else {
+    $('totalStockSisa').style.color = '';
+  }
+}
+
 
 usagesTableBody.addEventListener('click', async e=>{
   if (e.target.classList.contains('del-usage')) {
