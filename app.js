@@ -209,9 +209,36 @@ stocksTableBody.addEventListener('click', async (e)=> {
   }
 });
 
+// Populate Dropdown Jenis Shuttlecock
+const stockSelect = $('useStock');
+
+function populateStockSelect(snapshot) {
+  stockSelect.innerHTML = '<option value="">Pilih jenis shuttlecock</option>';
+
+  snapshot.forEach(doc => {
+    const d = doc.data();
+    const hargaPerCock = d.hargaPerTabung / d.isiPerTabung;
+
+    const opt = document.createElement('option');
+    opt.value = doc.id;
+    opt.textContent = `${d.jenis} - ${formatRp(Math.round(hargaPerCock))}/cock`;
+    opt.dataset.harga = hargaPerCock;
+    opt.dataset.jenis = d.jenis;
+
+    stockSelect.appendChild(opt);
+  });
+}
+
 
 // listen stocks ordered newest-first
-db.collection('stocks').orderBy('createdAt','desc').onSnapshot(renderStocks);
+// db.collection('stocks').orderBy('createdAt','desc').onSnapshot(renderStocks);
+db.collection('stocks')
+  .orderBy('createdAt', 'desc')
+  .onSnapshot(snap => {
+    renderStocks(snap);
+    populateStockSelect(snap);
+  });
+
 
 // ---------- USAGES ----------
 const usagesTableBody = $('usagesTable').querySelector('tbody');
@@ -229,7 +256,57 @@ $('addUsageBtn').addEventListener('click', async ()=>{
     return alert("Pilih minimal satu pemain dari daftar anggota");
 
   // ambil harga per cock terbaru
-  const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
+  // const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
+  // Ganti dengan stok terpilih
+  $('addUsageBtn').addEventListener('click', async () => {
+    const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
+    const cock = Number($('useCocks').value) || 0;
+    const playersTotal = Number($('usePlayers').value) || 1;
+    const stockId = $('useStock').value;
+  
+    if (!stockId) return alert('Pilih jenis shuttlecock');
+    if (cock <= 0) return alert('Jumlah cock harus > 0');
+  
+    const selectedMembers = Array.from($('useMembers').selectedOptions).map(o => o.value);
+    if (!selectedMembers.length) return alert('Pilih minimal satu anggota');
+  
+    const stockDoc = await db.collection('stocks').doc(stockId).get();
+    if (!stockDoc.exists) return alert('Data stok tidak ditemukan');
+  
+    const stock = stockDoc.data();
+    const hargaPerCock = stock.hargaPerTabung / stock.isiPerTabung;
+  
+    const totalBiaya = Math.round(cock * hargaPerCock);
+    const biayaPerOrang = Math.round(totalBiaya / playersTotal);
+  
+    const batch = db.batch();
+  
+    selectedMembers.forEach(memberId => {
+      const ref = db.collection('usages').doc();
+      batch.set(ref, {
+        tanggal,
+        memberId,
+        stockId,
+        jenis: stock.jenis,
+        cock,
+        players: playersTotal,
+        hargaPerCock,
+        totalBiaya,
+        biayaPerOrang,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+  
+    await batch.commit();
+  
+    $('useCocks').value = '';
+    $('usePlayers').value = '';
+    $('useMembers').selectedIndex = -1;
+    $('useStock').value = '';
+  });
+
+
+  
   let hargaPerCock = 0;
   if (!q.empty) {
     const s = q.docs[0].data();
@@ -277,6 +354,7 @@ function renderUsages(snapshot) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${d.tanggal}</td>
+      <td>${d.jenis || '-'}</td>
       <td data-id="${d.memberId}" class="usage-membername">Loading...</td>
       <td>${d.cock}</td>
       <td>${d.players}</td>
