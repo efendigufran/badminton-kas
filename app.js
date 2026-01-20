@@ -308,10 +308,11 @@ $('addUsageBtn').addEventListener('click', async ()=>{
 
   
   let hargaPerCock = 0;
-  if (!q.empty) {
-    const s = q.docs[0].data();
-    hargaPerCock = s.hargaPerTabung / s.isiPerTabung;
-  }
+  // if (!q.empty) {
+  //   const s = q.docs[0].data();
+  //   hargaPerCock = s.hargaPerTabung / s.isiPerTabung;
+  // }
+  
 
   const totalBiaya = Math.round(cock * hargaPerCock);
   const biayaPerOrang = Math.round(totalBiaya / playersTotal);
