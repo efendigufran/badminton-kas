@@ -241,169 +241,72 @@ db.collection('stocks')
 
 
 // ---------- USAGES ----------
+// ---------- USAGES ----------
 const usagesTableBody = $('usagesTable').querySelector('tbody');
+let totalCockTerpakai = 0;
 
-$('addUsageBtn').addEventListener('click', async ()=>{
+// ================= ADD USAGE =================
+$('addUsageBtn').addEventListener('click', async () => {
   const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
-  const cock = Number($('useCocks').value) || 0;
-  const playersTotal = Number($('usePlayers').value) || 1;
+  const cock = Number($('useCocks').value);
+  const players = Number($('usePlayers').value);
+  const stockId = $('useStock').value;
+  const members = Array.from($('useMembers').selectedOptions).map(o => o.value);
 
-  // ambil multiple selected members
-  const selected = Array.from($('useMembers').selectedOptions).map(o => o.value);
+  if (!stockId) return alert('Pilih jenis shuttlecock');
+  if (!cock || cock <= 0) return alert('Jumlah cock harus > 0');
+  if (!players || players <= 0) return alert('Jumlah pemain harus > 0');
+  if (!members.length) return alert('Pilih minimal satu anggota');
 
-  if (cock <= 0) return alert("Jumlah cock harus > 0");
-  if (selected.length === 0)
-    return alert("Pilih minimal satu pemain dari daftar anggota");
+  const stockDoc = await db.collection('stocks').doc(stockId).get();
+  if (!stockDoc.exists) return alert('Data stok tidak ditemukan');
 
-  // ambil harga per cock terbaru
-  // const q = await db.collection('stocks').orderBy('createdAt','desc').limit(1).get();
-  // Ganti dengan stok terpilih
-  $('addUsageBtn').addEventListener('click', async () => {
-    const tanggal = $('useDate').value || new Date().toISOString().slice(0,10);
-    const cock = Number($('useCocks').value) || 0;
-    const playersTotal = Number($('usePlayers').value) || 1;
-    const stockId = $('useStock').value;
-  
-    if (!stockId) return alert('Pilih jenis shuttlecock');
-    if (cock <= 0) return alert('Jumlah cock harus > 0');
-  
-    const selectedMembers = Array.from($('useMembers').selectedOptions).map(o => o.value);
-    if (!selectedMembers.length) return alert('Pilih minimal satu anggota');
-  
-    const stockDoc = await db.collection('stocks').doc(stockId).get();
-    if (!stockDoc.exists) return alert('Data stok tidak ditemukan');
-  
-    const stock = stockDoc.data();
-    const hargaPerCock = stock.hargaPerTabung / stock.isiPerTabung;
-  
-    const totalBiaya = Math.round(cock * hargaPerCock);
-    const biayaPerOrang = Math.round(totalBiaya / playersTotal);
-  
-    const batch = db.batch();
-  
-    selectedMembers.forEach(memberId => {
-      const ref = db.collection('usages').doc();
-      batch.set(ref, {
-        tanggal,
-        memberId,
-        stockId,
-        jenis: stock.jenis,
-        cock,
-        players: playersTotal,
-        hargaPerCock,
-        totalBiaya,
-        biayaPerOrang,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    });
-  
-    await batch.commit();
-  
-    $('useCocks').value = '';
-    $('usePlayers').value = '';
-    $('useMembers').selectedIndex = -1;
-    $('useStock').value = '';
+  const stock = stockDoc.data();
+  const hargaPerCock = stock.hargaPerTabung / stock.isiPerTabung;
+  const totalBiaya = Math.round(cock * hargaPerCock);
+  const biayaPerOrang = Math.round(totalBiaya / players);
+
+  const batch = db.batch();
+
+  // 🔥 1 EVENT PEMAKAIAN
+  const usageRef = db.collection('usages').doc();
+  batch.set(usageRef, {
+    tanggal,
+    stockId,
+    jenis: stock.jenis,
+    cock,
+    players,
+    hargaPerCock,
+    totalBiaya,
+    biayaPerOrang,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
-
-  
-  let hargaPerCock = 0;
-  // if (!q.empty) {
-  //   const s = q.docs[0].data();
-  //   hargaPerCock = s.hargaPerTabung / s.isiPerTabung;
-  // }
-  
-
-  const totalBiaya = Math.round(cock * hargaPerCock);
-  const biayaPerOrang = Math.round(totalBiaya / playersTotal);
-
-  // insert record per anggota
-  const batch = db.batch();
-  selected.forEach(memberId=>{
-    const ref = db.collection('usages').doc();
+  // 👥 RELASI ANGGOTA
+  members.forEach(memberId => {
+    const ref = db.collection('usage_members').doc();
     batch.set(ref, {
-      tanggal,
-      memberId,
-      cock,
-      players: playersTotal,
-      hargaPerCock,
-      totalBiaya,
-      biayaPerOrang,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      usageId: usageRef.id,
+      memberId
     });
   });
 
   await batch.commit();
 
-  $('useCocks').value='';
-  $('usePlayers').value='';
+  // reset form
+  $('useCocks').value = '';
+  $('usePlayers').value = '';
   $('useMembers').selectedIndex = -1;
+  $('useStock').value = '';
 });
 
+// ================= RENDER USAGES =================
 function renderUsages(snapshot) {
   usagesTableBody.innerHTML = '';
   totalCockTerpakai = 0;
 
-  snapshot.forEach(doc=>{
-    const d = doc.data();
-    const cock = Number(d.cock) || 0;
-    const players = Number(d.players) || 1;
+  snapshot.forEach(doc => {
 
-    totalCockTerpakai += cock / players;
-    // totalCockTerpakai += d.cock || 0;
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${d.tanggal}</td>
-      <td>${d.jenis || '-'}</td>
-      <td data-id="${d.memberId}" class="usage-membername">Loading...</td>
-      <td>${d.cock}</td>
-      <td>${d.players}</td>
-      <td>${formatRp(d.totalBiaya)}</td>
-      <td>${formatRp(d.biayaPerOrang)}</td>
-      <td><button class="del-usage" data-id="${doc.id}">Hapus</button></td>
-    `;
-    usagesTableBody.appendChild(tr);
-  });
-
-  updateStockSummary();
-
-  // mapping member name (tetap)
-  db.collection('members').get().then(snap=>{
-    const map = {};
-    snap.forEach(m => map[m.id] = m.data().name);
-    document.querySelectorAll('.usage-membername').forEach(td=>{
-      td.textContent = map[td.dataset.id] || '-';
-    });
-  });
-}
-
-function updateStockSummary() {
-  const stockSisa = totalStockAwal - totalCockTerpakai;
-
-  $('totalStockAwal').textContent = totalStockAwal;
-  $('totalStockTerpakai').textContent = totalCockTerpakai;
-  $('totalStockSisa').textContent = stockSisa;
-
-  // opsional: warning jika stok menipis
-  if (stockSisa < 20) {
-    $('totalStockSisa').style.color = 'red';
-  } else {
-    $('totalStockSisa').style.color = '';
-  }
-}
-
-
-usagesTableBody.addEventListener('click', async e=>{
-  if (e.target.classList.contains('del-usage')) {
-    const id = e.target.dataset.id;
-    if (confirm('Hapus pemakaian?')) {
-      await db.collection('usages').doc(id).delete();
-    }
-  }
-});
-
-db.collection('usages').orderBy('createdAt','desc').onSnapshot(renderUsages);
 
 
 // ---------- PAYMENTS ----------
