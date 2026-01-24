@@ -103,36 +103,19 @@
     <!-- USAGES -->
     <section id="usages" class="tab" style="display:none">
       <h2>Pencatatan Pemakaian Shuttlecock</h2>
-    
       <div class="form-row">
         <input id="useDate" type="date" />
-    
-        <select id="useStockType">
-          <option value="">Pilih jenis shuttlecock</option>
+        <select id="useMembers" multiple="">
+          <!-- <option value="">Pilih anggota (opsional)</option> -->
         </select>
-    
-        <input id="useCocks" type="number" min="1" placeholder="Jumlah cock" />
-        <input id="usePlayers" type="number" min="1" value="4" placeholder="Jumlah pemain" />
-    
-        <select id="useMembers" multiple></select>
-    
+        <input id="useCocks" type="number" min="0" value="1" placeholder="Jumlah cock dipakai" />
+        <input id="usePlayers" type="number" min="1" value="4" placeholder="Jumlah pemain saat itu" />
         <button id="addUsageBtn">Catat Pemakaian</button>
       </div>
-    
+
       <h3>Riwayat Pemakaian</h3>
       <table id="usagesTable">
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Jenis</th>
-            <th>Cock</th>
-            <th>Pemain</th>
-            <th>Total Biaya</th>
-            <th>Biaya / Orang</th>
-            <th>Anggota</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Tanggal</th><th>Nama</th><th>Cock</th><th>Players</th><th>Total Biaya</th><th>Biaya/orang</th><th>Aksi</th></tr></thead>
         <tbody></tbody>
       </table>
     </section>
