@@ -300,18 +300,18 @@ function renderUsages(snapshot) {
 }
 
 function updateStockSummary() {
-  const stockSisa = totalStockAwal - totalCockTerpakai;
+  // const stockSisa = totalStockAwal - totalCockTerpakai;
 
   $('totalStockAwal').textContent = totalStockAwal;
-  $('totalStockTerpakai').textContent = totalCockTerpakai;
-  $('totalStockSisa').textContent = stockSisa;
+  // $('totalStockTerpakai').textContent = totalCockTerpakai;
+  // $('totalStockSisa').textContent = stockSisa;
 
   // opsional: warning jika stok menipis
-  if (stockSisa < 20) {
+  /*if (stockSisa < 20) {
     $('totalStockSisa').style.color = 'red';
   } else {
     $('totalStockSisa').style.color = '';
-  }
+  }*/
 }
 
 
