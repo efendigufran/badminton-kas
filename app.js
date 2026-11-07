@@ -410,10 +410,20 @@ async function computeBalances() {
   
   // SORT DESC ABSOLUTE SALDO
   rows.sort((a, b) => {
-    // urutan 1: absSaldo DESC
-    if (b.absSaldo !== a.absSaldo) return b.absSaldo - a.absSaldo;
+    // 1. Member dengan nama mengandung "guest" selalu di akhir
+    const aGuest = a.name.toLowerCase().includes('guest');
+    const bGuest = b.name.toLowerCase().includes('guest');
   
-    // urutan 2: pay DESC
+    if (aGuest !== bGuest) {
+      return aGuest ? 1 : -1;
+    }
+  
+    // 2. Urutkan berdasarkan absSaldo terbesar
+    if (b.absSaldo !== a.absSaldo) {
+      return b.absSaldo - a.absSaldo;
+    }
+  
+    // 3. Jika absSaldo sama, urutkan berdasarkan pembayaran terbesar
     return b.pay - a.pay;
   });
   
