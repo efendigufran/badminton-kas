@@ -410,20 +410,22 @@ async function computeBalances() {
   
   // SORT DESC ABSOLUTE SALDO
   rows.sort((a, b) => {
-    // 1. Member dengan nama mengandung "guest" selalu di akhir
-    const aGuest = a.name.toLowerCase().includes('guest');
-    const bGuest = b.name.toLowerCase().includes('guest');
+    const nameA = String(a.name || '').toLowerCase();
+    const nameB = String(b.name || '').toLowerCase();
   
+    const aGuest = nameA.includes('guest');
+    const bGuest = nameB.includes('guest');
+  
+    // Member dengan nama mengandung "guest" ditempatkan paling akhir
     if (aGuest !== bGuest) {
       return aGuest ? 1 : -1;
     }
   
-    // 2. Urutkan berdasarkan absSaldo terbesar
+    // Urutan berikutnya berdasarkan saldo terbesar
     if (b.absSaldo !== a.absSaldo) {
       return b.absSaldo - a.absSaldo;
     }
   
-    // 3. Jika absSaldo sama, urutkan berdasarkan pembayaran terbesar
     return b.pay - a.pay;
   });
   
